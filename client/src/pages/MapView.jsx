@@ -110,6 +110,7 @@ export default function MapView() {
   const [createdFloor, setCreatedFloor] = useState(null);
   const [wizardSaving, setWizardSaving] = useState(false);
   const [deletingSensorId, setDeletingSensorId] = useState(null);
+  const [isRestoringFromLocalStorage, setIsRestoringFromLocalStorage] = useState(false);
   const { toast } = useToast();
 
   // Handle building selection
@@ -118,16 +119,18 @@ export default function MapView() {
     setSelectedFloorId(""); // Clear floor selection
     setSelectedMapId(""); // Clear map
     
-    // Auto-select first floor if available
-    const buildingFloors = floors.filter(floor => floor.building_id && floor.building_id.toString() === buildingId);
-    if (buildingFloors.length > 0) {
-      const firstFloor = buildingFloors[0];
-      setSelectedFloorId(firstFloor.id.toString());
-      
-      // Auto-select map for first floor if available
-      const floorMap = maps.find(map => map.floor_id && map.floor_id.toString() === firstFloor.id.toString());
-      if (floorMap) {
-        setSelectedMapId(floorMap.id.toString());
+    // Auto-select first floor if available (but not during localStorage restoration)
+    if (!isRestoringFromLocalStorage) {
+      const buildingFloors = floors.filter(floor => floor.building_id && floor.building_id.toString() === buildingId);
+      if (buildingFloors.length > 0) {
+        const firstFloor = buildingFloors[0];
+        setSelectedFloorId(firstFloor.id.toString());
+        
+        // Auto-select map for first floor if available
+        const floorMap = maps.find(map => map.floor_id && map.floor_id.toString() === firstFloor.id.toString());
+        if (floorMap) {
+          setSelectedMapId(floorMap.id.toString());
+        }
       }
     }
   };
@@ -161,6 +164,16 @@ export default function MapView() {
       localStorage.setItem('mapview-selected-map', selectedMapId);
       localStorage.setItem('mapview-selected-building', selectedBuildingId);
       localStorage.setItem('mapview-selected-floor', selectedFloorId);
+    } else {
+      // No map selected - clear sensors to show 0 count
+      setSensors([]);
+      
+      // Save building and floor selection even if no map exists
+      if (selectedBuildingId && selectedFloorId) {
+        localStorage.setItem('mapview-selected-building', selectedBuildingId);
+        localStorage.setItem('mapview-selected-floor', selectedFloorId);
+        localStorage.removeItem('mapview-selected-map'); // Clear map since none exists
+      }
     }
   }, [selectedMapId, selectedBuildingId, selectedFloorId]);
 
@@ -171,16 +184,48 @@ export default function MapView() {
       const savedBuildingId = localStorage.getItem('mapview-selected-building');
       const savedFloorId = localStorage.getItem('mapview-selected-floor');
       
-      if (savedMapId && savedBuildingId && savedFloorId) {
+      if (savedBuildingId && savedFloorId) {
         // Verify the saved IDs still exist
-        const mapExists = maps.find(m => m.id.toString() === savedMapId);
         const buildingExists = buildings.find(b => b.id.toString() === savedBuildingId);
         const floorExists = floors.find(f => f.id.toString() === savedFloorId);
         
-        if (mapExists && buildingExists && floorExists) {
-          setSelectedMapId(savedMapId);
+        if (buildingExists && floorExists) {
+          // Set restoration flag to prevent auto-selection during restoration
+          setIsRestoringFromLocalStorage(true);
+          
+          // Set building and floor simultaneously to avoid triggering auto-selection
           setSelectedBuildingId(savedBuildingId);
           setSelectedFloorId(savedFloorId);
+          
+          // Check if saved map still exists
+          if (savedMapId) {
+            const mapExists = maps.find(m => m.id.toString() === savedMapId);
+            if (mapExists) {
+              setSelectedMapId(savedMapId);
+            } else {
+              // Map was deleted - clear map selection and localStorage
+              setSelectedMapId("");
+              localStorage.removeItem('mapview-selected-map');
+            }
+          } else {
+            // No saved map - check if current floor has a map
+            const floorMap = maps.find(map => map.floor_id && map.floor_id.toString() === savedFloorId);
+            if (floorMap) {
+              setSelectedMapId(floorMap.id.toString());
+            } else {
+              setSelectedMapId("");
+            }
+          }
+          
+          // Clear restoration flag after state updates
+          setTimeout(() => {
+            setIsRestoringFromLocalStorage(false);
+          }, 100);
+        } else {
+          // Clear all invalid selections from localStorage
+          localStorage.removeItem('mapview-selected-map');
+          localStorage.removeItem('mapview-selected-building');
+          localStorage.removeItem('mapview-selected-floor');
         }
       }
     }
@@ -197,12 +242,16 @@ export default function MapView() {
         entities.Floor.list()
       ]);
       
-      
       setMaps(mapsData);
       setPlants(plantsData);
       setMeasurements(measurementsData);
       setBuildings(buildingsData);
       setFloors(floorsData);
+      
+      // Refresh sensors for current map only (if map is selected)
+      if (selectedMapId) {
+        await loadSensorsForMap(selectedMapId);
+      }
     } catch (error) {
       console.error("Error loading maps data:", error);
     }
@@ -297,14 +346,17 @@ export default function MapView() {
   };
 
   const handleWizardStep3 = async () => {
-    if (!wizardData.map.name.trim() || !createdBuilding || !createdFloor) return;
+    if (!createdBuilding || !createdFloor) return;
     setWizardSaving(true);
     try {
       console.log('createdBuilding:', createdBuilding);
       console.log('createdFloor:', createdFloor);
       
+      // Auto-generate map name if empty (same pattern as Buildings page)
+      const mapName = wizardData.map.name.trim() || `${createdBuilding.name}_${createdFloor.name}`;
+      
       await entities.Map.create({
-        name: wizardData.map.name.trim(),
+        name: mapName,
         image_base64: wizardData.map.image_base64 || null,
         building_id: createdBuilding.id,
         floor_id: createdFloor.id,
@@ -312,7 +364,7 @@ export default function MapView() {
       
       toast({
         title: "תשתית נוצרה בהצלחה!",
-        description: `בניין "${createdBuilding.name}" עם קומה "${createdFloor.name}" ומפה "${wizardData.map.name}" נוצרו.`,
+        description: `בניין "${createdBuilding.name}" עם קומה "${createdFloor.name}" ומפה "${mapName}" נוצרו.`,
       });
       
       // Reset wizard and reload data
@@ -559,7 +611,7 @@ export default function MapView() {
     
     setDraggingSensor(null);
     setDragOffset({ x: 0, y: 0 });
-    cachedRect.current = null;
+    setCachedRect(null);
   };
 
   // Drag end handler for MapView - saves to API and updates local state
@@ -641,29 +693,28 @@ export default function MapView() {
   
   // Dashboard Statistics
   const totalSensors = sensors.length;
-  const activeSensors = sensors.filter(s => getSensorStatus(s) !== 'offline').length;
-  const criticalSensors = sensors.filter(s => getSensorStatus(s) === 'critical').length;
-  const goodSensors = sensors.filter(s => getSensorStatus(s) === 'good').length;
+  const activeSensors = sensors.filter(s => s.status === 'active').length;
+  const inactiveSensors = sensors.filter(s => s.status !== 'active').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100" dir="rtl">
       {/* Header Section */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-white/20 shadow-sm">
         <div className="p-6 lg:p-8">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div className="flex flex-col gap-6">
             <div className="space-y-2">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-700 to-blue-700 bg-clip-text text-transparent">
                 מפת קמפוס חכם
               </h1>
               <p className="text-gray-600 text-lg">לוח בקרה מתקדם לניהול ומעקב אחר חיישני הקמפוס</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Building Selector */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <select 
                   value={selectedBuildingId || ""} 
                   onChange={(e) => handleBuildingChange(e.target.value)}
-                  className="w-48 h-12 bg-white/70 backdrop-blur-sm border-2 border-emerald-200 hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 transition-colors rounded-md px-3 pr-10 text-right shadow-sm appearance-none cursor-pointer"
+                  className="w-full sm:w-40 h-12 bg-white/70 backdrop-blur-sm border-2 border-emerald-200 hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 transition-colors rounded-md px-3 pr-10 text-right shadow-sm appearance-none cursor-pointer"
                   dir="rtl"
                 >
                   <option value="" disabled>בחר בניין</option>
@@ -679,12 +730,12 @@ export default function MapView() {
               </div>
               
               {/* Floor Selector */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <select 
                   value={selectedFloorId || ""} 
                   onChange={(e) => handleFloorChange(e.target.value)}
                   disabled={!selectedBuildingId}
-                  className="w-48 h-12 bg-white/70 backdrop-blur-sm border-2 border-emerald-200 hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 transition-colors rounded-md px-3 pr-10 text-right shadow-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-40 h-12 bg-white/70 backdrop-blur-sm border-2 border-emerald-200 hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-200 transition-colors rounded-md px-3 pr-10 text-right shadow-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   dir="rtl"
                 >
                   <option value="" disabled>בחר קומה</option>
@@ -713,12 +764,12 @@ export default function MapView() {
 
       <div className="p-6 lg:p-8 space-y-8">
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-emerald-100 text-sm font-medium">סה&ldquo;כ חיישנים</p>
+                  <p className="text-blue-100 text-sm font-medium">סה&ldquo;כ חיישנים</p>
                   <p className="text-3xl font-bold">{totalSensors}</p>
                 </div>
                 <div className="p-3 bg-white/20 rounded-full">
@@ -728,12 +779,12 @@ export default function MapView() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium">חיישנים פעילים</p>
-                  <p className="text-3xl font-bold">{activeSensors}</p>
+                  <p className="text-green-100 text-sm font-medium">חיישנים פעילים</p>
+                  <p className="text-3xl font-bold">{activeSensors}/{totalSensors}</p>
                 </div>
                 <div className="p-3 bg-white/20 rounded-full">
                   <Activity className="w-6 h-6" />
@@ -742,12 +793,12 @@ export default function MapView() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-orange-500 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+          <Card className="bg-gradient-to-br from-red-500 to-red-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm font-medium">דורש תשומת לב</p>
-                  <p className="text-3xl font-bold">{criticalSensors}</p>
+                  <p className="text-red-100 text-sm font-medium">חיישנים לא פעילים</p>
+                  <p className="text-3xl font-bold">{inactiveSensors}/{totalSensors}</p>
                 </div>
                 <div className="p-3 bg-white/20 rounded-full">
                   <AlertTriangle className="w-6 h-6" />
@@ -756,19 +807,6 @@ export default function MapView() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 border-0 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium">במצב תקין</p>
-                  <p className="text-3xl font-bold">{goodSensors}</p>
-                </div>
-                <div className="p-3 bg-white/20 rounded-full">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Main Content */}
@@ -895,21 +933,13 @@ export default function MapView() {
               <CardContent className="p-4 space-y-4">
                 {/* Legend */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2 bg-red-50 rounded-md border border-red-200">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-red-800">דחוף</span>
-                  </div>
-                  <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md border border-blue-200">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-blue-800">לחות תקינה</span>
-                  </div>
                   <div className="flex items-center gap-2 p-2 bg-green-50 rounded-md border border-green-200">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-xs font-medium text-green-800">טמפרטורה תקינה</span>
+                    <span className="text-xs font-medium text-green-800">פעיל</span>
                   </div>
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md border border-gray-200">
-                    <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                    <span className="text-xs font-medium text-gray-800">לא פעיל</span>
+                  <div className="flex items-center gap-2 p-2 bg-red-50 rounded-md border border-red-200">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="text-xs font-medium text-red-800">לא פעיל</span>
                   </div>
                 </div>
                 
@@ -1456,8 +1486,7 @@ export default function MapView() {
               }}
               disabled={wizardSaving || 
                 (wizardStep === 1 && !wizardData.building.name.trim()) ||
-                (wizardStep === 2 && !wizardData.floor.name.trim()) ||
-                (wizardStep === 3 && !wizardData.map.name.trim())
+                (wizardStep === 2 && !wizardData.floor.name.trim())
               }
               className="bg-indigo-500 hover:bg-indigo-600"
             >

@@ -1,6 +1,7 @@
 const miscModel = require('../models/miscModel');
 const buildingController = require('./buildingController');
 const floorController = require('./floorController');
+const db = require('../config/db');
 
 async function filterSensors(req, res) {
   try {
@@ -120,17 +121,109 @@ async function createFloor(req, res) {
   }
 }
 
+async function deleteMap(req, res) {
+  try {
+    await miscModel.ensureTables();
+    const { id } = req.params;
+    
+    // Cascade delete: get sensors for this map, then delete their measurements, plants, watering schedules
+    const [sensors] = await db.query('SELECT id FROM sensor WHERE map_id = ?', [id]);
+    const sensorIds = sensors.map(s => s.id);
+    
+    if (sensorIds.length > 0) {
+      const sensorPlaceholders = sensorIds.map(() => '?').join(',');
+      
+      // Delete measurements for these sensors
+      await db.query(`DELETE FROM measurement WHERE sensor_id IN (${sensorPlaceholders})`, sensorIds);
+      
+      // Get plants for these sensors and delete their watering schedules
+      const [plants] = await db.query(`SELECT id FROM plant WHERE sensor_id IN (${sensorPlaceholders})`, sensorIds);
+      const plantIds = plants.map(p => p.id);
+      
+      if (plantIds.length > 0) {
+        const plantPlaceholders = plantIds.map(() => '?').join(',');
+        await db.query(`DELETE FROM watering_schedule WHERE plant_id IN (${plantPlaceholders})`, plantIds);
+        await db.query(`DELETE FROM plant WHERE id IN (${plantPlaceholders})`, plantIds);
+      }
+      
+      // Delete sensors
+      await db.query(`DELETE FROM sensor WHERE map_id = ?`, [id]);
+    }
+    
+    // Finally delete the map
+    await db.query('DELETE FROM map WHERE id = ?', [id]);
+    
+    res.json({ 
+      message: `Map deleted along with ${sensorIds.length} sensors and related data.`
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+async function deleteMeasurement(req, res) {
+  try {
+    await miscModel.ensureTables();
+    const { id } = req.params;
+    await db.query('DELETE FROM measurement WHERE id = ?', [id]);
+    res.json({ message: 'Measurement deleted' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+async function cleanupOrphanedData(req, res) {
+  try {
+    await miscModel.ensureTables();
+    let cleanupResults = {};
+    
+    // Delete orphaned measurements (measurements with non-existent sensor_id)
+    const [measurementResult] = await db.query(`
+      DELETE m FROM measurement m 
+      LEFT JOIN sensor s ON m.sensor_id = s.id 
+      WHERE s.id IS NULL
+    `);
+    cleanupResults.orphanedMeasurements = measurementResult.affectedRows;
+    
+    // Delete orphaned maps (maps with non-existent floor_id)
+    const [mapResult] = await db.query(`
+      DELETE m FROM map m 
+      LEFT JOIN floor f ON m.floor_id = f.id 
+      WHERE m.floor_id IS NOT NULL AND f.id IS NULL
+    `);
+    cleanupResults.orphanedMaps = mapResult.affectedRows;
+    
+    // Delete orphaned sensors (sensors with non-existent map_id)
+    const [sensorResult] = await db.query(`
+      DELETE s FROM sensor s 
+      LEFT JOIN map m ON s.map_id = m.id 
+      WHERE s.map_id IS NOT NULL AND m.id IS NULL
+    `);
+    cleanupResults.orphanedSensors = sensorResult.affectedRows;
+    
+    res.json({ 
+      message: 'Orphaned data cleanup completed',
+      results: cleanupResults
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 module.exports = {
   filterSensors,
   getPlants,
   updatePlant,
   getMeasurements,
+  deleteMeasurement,
   getMaps,
   createMap,
+  deleteMap,
   getWateringSchedules,
   createWateringSchedule,
   getBuildings,
   createBuilding,
   getFloors,
   createFloor,
+  cleanupOrphanedData,
 };

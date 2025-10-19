@@ -161,10 +161,14 @@ export const entities = {
   Building: {
     list: () => apiClient.getBuildings(),
     create: (data) => apiClient.createBuilding(data),
+    update: (id, data) => apiClient.request(`/buildings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => apiClient.request(`/buildings/${id}`, { method: 'DELETE' }),
   },
   Floor: {
     list: () => apiClient.getFloors(),
     create: (data) => apiClient.createFloor(data),
+    update: (id, data) => apiClient.request(`/floors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => apiClient.request(`/floors/${id}`, { method: 'DELETE' }),
   },
   Plant: {
     list: () => apiClient.getPlants(),
@@ -181,6 +185,7 @@ export const entities = {
   Map: {
     list: () => apiClient.getMaps(),
     create: (data) => apiClient.createMap(data),
+    delete: (id) => apiClient.request(`/maps/${id}`, { method: 'DELETE' }),
   },
 };// Export entities as default
 export default { entities };

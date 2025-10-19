@@ -35,13 +35,15 @@ export default function Buildings() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAddFloorDialogOpen, setIsAddFloorDialogOpen] = useState(false);
   const [isEditFloorDialogOpen, setIsEditFloorDialogOpen] = useState(false);
+  const [isEditBuildingDialogOpen, setIsEditBuildingDialogOpen] = useState(false);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isMapPreviewOpen, setIsMapPreviewOpen] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [selectedFloor, setSelectedFloor] = useState(null);
   const [previewMap, setPreviewMap] = useState(null);
   const [newBuilding, setNewBuilding] = useState({ name: "", address: "", description: "" });
-  const [newFloor, setNewFloor] = useState({ floor_number: "", name: "", map_data: "" });
+  const [editBuilding, setEditBuilding] = useState({ name: "" });
+  const [newFloor, setNewFloor] = useState({ floor_number: "", name: "", map_data: "", map_name: "" });
   const [editFloor, setEditFloor] = useState({ name: "", level: "" });
   const [mapAction, setMapAction] = useState(""); // "assign", "replace", "remove"
 
@@ -143,34 +145,23 @@ export default function Buildings() {
 
   const handleAddFloor = async () => {
     try {
-      if (!newFloor.floor_number.trim() || !newFloor.name.trim()) {
-        alert("מספר קומה ושם הם שדות חובה");
+      if (!newFloor.floor_number.trim()) {
+        alert("מספר קומה הוא שדה חובה");
         return;
       }
+      
+      // Use floor number as name if name is not provided
+      const floorName = newFloor.name.trim() || `קומה ${newFloor.floor_number}`;
 
       const floorData = await entities.Floor.create({
-        name: newFloor.name,
+        name: floorName,
         building_id: selectedBuilding.id,
         level: parseInt(newFloor.floor_number)
       });
       
-      // If map data was provided, create a map for this floor
-      if (newFloor.map_data) {
-        // Extract base64 data if it's a data URL
-        const base64Data = newFloor.map_data.includes('base64,') 
-          ? newFloor.map_data.split('base64,')[1] 
-          : newFloor.map_data;
-          
-        await entities.Map.create({
-          name: `מפת ${newFloor.name}`,
-          image_base64: base64Data,
-          building_id: selectedBuilding.id,
-          floor_id: floorData.id
-        });
-      }
       
       setIsAddFloorDialogOpen(false);
-      setNewFloor({ floor_number: "", name: "", map_data: "" });
+      setNewFloor({ floor_number: "", name: "", map_data: "", map_name: "" });
       setSelectedBuilding(null);
       await loadBuildingsData();
       console.log("Floor added successfully");
@@ -188,12 +179,20 @@ export default function Buildings() {
 
   const handleDeleteBuilding = async (building) => {
     try {
+      console.log("Attempting to delete building:", building.id, building.name);
       await entities.Building.delete(building.id);
       await loadBuildingsData();
       console.log("Building deleted successfully with cascade");
     } catch (error) {
       console.error("Error deleting building:", error);
-      alert("נכשל במחיקת הבניין");
+      console.error("Error details:", {
+        status: error.status,
+        response: error.response,
+        message: error.message,
+        data: error.response?.data
+      });
+      const errorMessage = error.response?.data?.error || error.message || "נכשל במחיקת הבניין";
+      alert(`שגיאה: ${errorMessage}`);
     }
   };
 
@@ -211,11 +210,94 @@ export default function Buildings() {
     return maps.find(map => map.floor_id && map.floor_id.toString() === floorId.toString());
   };
 
+  const getBuildingDeletionInfo = (buildingId) => {
+    const buildingFloors = floors.filter(f => f.building_id === buildingId);
+    const floorIds = buildingFloors.map(f => f.id);
+    const buildingMaps = maps.filter(m => floorIds.includes(m.floor_id));
+    const buildingSensors = sensors.filter(s => s.building_id === buildingId);
+    
+    return {
+      floors: buildingFloors.length,
+      maps: buildingMaps.length,
+      sensors: buildingSensors.length
+    };
+  };
+
+  const getFloorDeletionInfo = (floorId) => {
+    const floorMaps = maps.filter(m => m.floor_id === floorId);
+    const floorSensors = sensors.filter(s => s.floor_id === floorId);
+    
+    return {
+      maps: floorMaps.length,
+      sensors: floorSensors.length
+    };
+  };
+
+  const handleEditBuilding = (building) => {
+    setSelectedBuilding(building);
+    setEditBuilding({ name: building.name });
+    setIsEditBuildingDialogOpen(true);
+  };
+
+  const handleUpdateBuilding = async () => {
+    try {
+      if (!editBuilding.name.trim()) {
+        alert("שם הבניין הוא שדה חובה");
+        return;
+      }
+
+      await entities.Building.update(selectedBuilding.id, {
+        name: editBuilding.name
+      });
+
+      setIsEditBuildingDialogOpen(false);
+      setSelectedBuilding(null);
+      setEditBuilding({ name: "" });
+      await loadBuildingsData();
+      console.log("Building updated successfully");
+    } catch (error) {
+      console.error("Error updating building:", error);
+      alert("נכשל בעדכון הבניין");
+    }
+  };
+
   const handleEditFloor = (floor, building) => {
     setSelectedFloor(floor);
     setSelectedBuilding(building);
     setEditFloor({ name: floor.name, level: floor.level || floor.floor_number });
     setIsEditFloorDialogOpen(true);
+  };
+
+  const handleMapUpload = async (file) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Data = event.target.result.includes('base64,') 
+          ? event.target.result.split('base64,')[1] 
+          : event.target.result;
+        
+        const buildingName = selectedBuilding?.name || '';
+        const floorName = selectedFloor?.name || '';
+        const defaultMapName = `${buildingName}_${floorName}`;
+        const finalMapName = newFloor.map_name || defaultMapName;
+        
+        await entities.Map.create({
+          name: finalMapName,
+          image_base64: base64Data,
+          building_id: selectedBuilding.id,
+          floor_id: selectedFloor.id
+        });
+        
+        setIsMapDialogOpen(false);
+        setNewFloor({ floor_number: "", name: "", map_data: "", map_name: "" });
+        await loadBuildingsData();
+        console.log("Map uploaded successfully");
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading map:", error);
+      alert("נכשל בהעלאת המפה");
+    }
   };
 
   const handleUpdateFloor = async () => {
@@ -227,7 +309,8 @@ export default function Buildings() {
 
       await entities.Floor.update(selectedFloor.id, {
         name: editFloor.name,
-        level: parseInt(editFloor.level) || selectedFloor.level
+        level: parseInt(editFloor.level) || selectedFloor.level,
+        building_id: selectedFloor.building_id
       });
 
       setIsEditFloorDialogOpen(false);
@@ -259,46 +342,6 @@ export default function Buildings() {
     setIsMapDialogOpen(true);
   };
 
-  const handleMapUpload = async (file) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64Data = event.target.result.includes('base64,') 
-          ? event.target.result.split('base64,')[1] 
-          : event.target.result;
-
-        if (mapAction === "assign") {
-          await entities.Map.create({
-            name: `מפת ${selectedFloor.name}`,
-            image_base64: base64Data,
-            building_id: selectedBuilding.id,
-            floor_id: selectedFloor.id
-          });
-        } else if (mapAction === "replace") {
-          const existingMap = getMapForFloor(selectedFloor.id);
-          if (existingMap) {
-            await entities.Map.delete(existingMap.id);
-          }
-          await entities.Map.create({
-            name: `מפת ${selectedFloor.name}`,
-            image_base64: base64Data,
-            building_id: selectedBuilding.id,
-            floor_id: selectedFloor.id
-          });
-        }
-
-        setIsMapDialogOpen(false);
-        setMapAction("");
-        setSelectedFloor(null);
-        await loadBuildingsData();
-        console.log("Map operation completed successfully");
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Error with map operation:", error);
-      alert("נכשל בפעולת המפה");
-    }
-  };
 
   const handleRemoveMap = async () => {
     try {
@@ -526,9 +569,25 @@ export default function Buildings() {
                                           <AlertDialogContent className="bg-white">
                                             <AlertDialogHeader>
                                               <AlertDialogTitle>מחיקת קומה</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                האם אתה בטוח שברצונך למחוק את הקומה "{floor.name}"?
-                                                פעולה זו תמחק גם את המפה והחיישנים הקשורים.
+                                              <AlertDialogDescription asChild>
+                                                {(() => {
+                                                  const deletionInfo = getFloorDeletionInfo(floor.id);
+                                                  return (
+                                                    <div className="space-y-2">
+                                                      <p>האם אתה בטוח שברצונך למחוק את הקומה "{floor.name}"?</p>
+                                                      <div className="bg-red-50 p-3 rounded-md border border-red-200">
+                                                        <p className="font-medium text-red-800 mb-1">פעולה זו תמחק לצמיתות:</p>
+                                                        <ul className="text-sm text-red-700 space-y-1">
+                                                          {deletionInfo.maps > 0 && <li>• {deletionInfo.maps} מפות</li>}
+                                                          {deletionInfo.sensors > 0 && <li>• {deletionInfo.sensors} חיישנים</li>}
+                                                          {deletionInfo.maps === 0 && deletionInfo.sensors === 0 && (
+                                                            <li>• קומה ריקה (ללא מפות או חיישנים)</li>
+                                                          )}
+                                                        </ul>
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                })()}
                                               </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
@@ -652,26 +711,6 @@ export default function Buildings() {
                               placeholder="הזן שם קומה..."
                             />
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="floor-map">נתוני מפה</Label>
-                            <Input
-                              id="floor-map"
-                              type="file"
-                              accept="image/*,.svg,.png,.jpg,.jpeg"
-                              onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    setNewFloor(prev => ({ ...prev, map_data: event.target.result }));
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                              className="cursor-pointer"
-                            />
-                            <p className="text-xs text-gray-500">העלה קובץ תמונה (PNG, JPG, SVG)</p>
-                          </div>
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={() => {
@@ -687,6 +726,15 @@ export default function Buildings() {
                       </DialogContent>
                     </Dialog>
 
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                      onClick={() => handleEditBuilding(building)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
@@ -696,10 +744,26 @@ export default function Buildings() {
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>מחיקת בניין</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            האם אתה בטוח שברצונך למחוק את הבניין "{building.name}"?
-                            <br />
-                            <strong>פעולה זו תמחק גם את כל הקומות והחיישנים הקשורים לבניין.</strong>
+                          <AlertDialogDescription asChild>
+                            {(() => {
+                              const deletionInfo = getBuildingDeletionInfo(building.id);
+                              return (
+                                <div className="space-y-2">
+                                  <p>האם אתה בטוח שברצונך למחוק את הבניין "{building.name}"?</p>
+                                  <div className="bg-red-50 p-3 rounded-md border border-red-200">
+                                    <p className="font-medium text-red-800 mb-1">פעולה זו תמחק לצמיתות:</p>
+                                    <ul className="text-sm text-red-700 space-y-1">
+                                      {deletionInfo.floors > 0 && <li>• {deletionInfo.floors} קומות</li>}
+                                      {deletionInfo.maps > 0 && <li>• {deletionInfo.maps} מפות</li>}
+                                      {deletionInfo.sensors > 0 && <li>• {deletionInfo.sensors} חיישנים</li>}
+                                      {deletionInfo.floors === 0 && deletionInfo.maps === 0 && deletionInfo.sensors === 0 && (
+                                        <li>• בניין ריק (ללא קומות או חיישנים)</li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -801,6 +865,15 @@ export default function Buildings() {
                     {mapAction === "assign" ? "העלה מפה חדשה לקומה" : "העלה מפה חדשה להחלפה"}
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="map-name">שם המפה</Label>
+                  <Input
+                    id="map-name"
+                    value={newFloor.map_name || ''}
+                    onChange={(e) => setNewFloor(prev => ({ ...prev, map_name: e.target.value }))}
+                    placeholder="הזן שם המפה..."
+                  />
+                </div>
                 <Input
                   type="file"
                   accept="image/*,.svg,.png,.jpg,.jpeg"
@@ -845,6 +918,34 @@ export default function Buildings() {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Building Dialog */}
+      <Dialog open={isEditBuildingDialogOpen} onOpenChange={setIsEditBuildingDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>עריכת בניין</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-building-name">שם הבניין *</Label>
+              <Input
+                id="edit-building-name"
+                value={editBuilding.name}
+                onChange={(e) => setEditBuilding(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="הזן שם בניין..."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditBuildingDialogOpen(false)}>
+              ביטול
+            </Button>
+            <Button onClick={handleUpdateBuilding}>
+              עדכן בניין
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -4,11 +4,9 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { 
-  LayoutDashboard, 
   Map, 
   RadioTower, 
   Building2, 
-  History,
   Droplets,
   Settings
 } from "lucide-react";
@@ -29,11 +27,6 @@ import {
 
 const navigationItems = [
   {
-    title: "לוח בקרה",
-    url: createPageUrl("Dashboard"),
-    icon: LayoutDashboard,
-  },
-  {
     title: "מפת קמפוס",
     url: createPageUrl("MapView"),
     icon: Map,
@@ -47,11 +40,6 @@ const navigationItems = [
     title: "בניינים",
     url: createPageUrl("Buildings"),
     icon: Building2,
-  },
-  {
-    title: "היסטוריה",
-    url: createPageUrl("History"),
-    icon: History,
   },
 ];
 

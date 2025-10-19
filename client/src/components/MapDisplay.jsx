@@ -36,37 +36,26 @@ export default function MapDisplay({
   };
 
   const getSensorStatus = (sensor) => {
-    const measurement = getLatestMeasurementForSensor(sensor.id);
-    const plant = getPlantForSensor(sensor.id);
-    
-    if (!measurement) return 'offline';
-    if (sensor.type === 'moisture' && plant) {
-      return measurement.value < plant.watering_threshold ? 'critical' : 'good';
-    }
-    return 'good';
+    // Simple active/inactive logic based on sensor status field
+    return sensor.status === 'active' ? 'active' : 'inactive';
   };
 
   const getSensorIcon = (sensor, isSmall = false) => {
     const status = getSensorStatus(sensor);
     const baseClasses = isSmall ? "w-4 h-4 p-1 rounded-full border-2" : "w-6 h-6 p-1.5 rounded-full border-2";
     
+    // Get appropriate icon based on sensor type
+    const SensorIcon = sensor.type === 'moisture' ? Droplets : Thermometer;
+    
     switch(status) {
-      case 'critical':
-        return sensor.type === 'moisture' ? 
-          <div className={`${baseClasses} bg-red-500 border-red-600 text-white`}>
-            <Droplets className="w-full h-full" />
-          </div> :
-          <div className={`${baseClasses} bg-orange-500 border-orange-600 text-white`}>
-            <Thermometer className="w-full h-full" />
-          </div>;
-      case 'good':
-        return sensor.type === 'moisture' ?
-          <div className={`${baseClasses} bg-blue-500 border-blue-600 text-white`}>
-            <Droplets className="w-full h-full" />
-          </div> :
-          <div className={`${baseClasses} bg-green-500 border-green-600 text-white`}>
-            <Thermometer className="w-full h-full" />
-          </div>;
+      case 'active':
+        return <div className={`${baseClasses} bg-green-500 border-green-600 text-white`}>
+          <SensorIcon className="w-full h-full" />
+        </div>;
+      case 'inactive':
+        return <div className={`${baseClasses} bg-red-500 border-red-600 text-white`}>
+          <SensorIcon className="w-full h-full" />
+        </div>;
       default:
         return <div className={`${baseClasses} bg-gray-400 border-gray-500 text-white`}>
           <AlertTriangle className="w-full h-full" />
@@ -92,7 +81,8 @@ export default function MapDisplay({
 
   return (
     <div
-      className={`relative w-full h-full bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 overflow-hidden ${readOnly ? '' : 'cursor-crosshair'} ${className}`}
+      className={`relative w-full bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 ${readOnly ? '' : 'cursor-crosshair'} ${className}`}
+      style={{ height: '800px' }}
       ref={mapContainerRef}
       onClick={handleMapClick}
     >
@@ -192,8 +182,8 @@ export default function MapDisplay({
                 </div>
               )}
               
-              {/* Pulse Effect for Critical Sensors */}
-              {status === 'critical' && (
+              {/* Pulse Effect for Inactive Sensors */}
+              {status === 'inactive' && (
                 <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
               )}
               

@@ -53,6 +53,14 @@ async function createSensor(sensor) {
 
   await ensureSensorTable();
 
+  // Check for duplicate names (globally unique)
+  if (name) {
+    const [existing] = await db.query('SELECT id FROM sensor WHERE name = ?', [name]);
+    if (existing.length > 0) {
+      throw new Error(`Sensor with name "${name}" already exists`);
+    }
+  }
+
   const [result] = await db.query(
     `INSERT INTO sensor (
       serial_number, model, manufacturer, type, name, unit,
@@ -69,6 +77,15 @@ async function createSensor(sensor) {
 // עדכון
 async function updateSensor(id, sensor) {
   await ensureSensorTable();
+  
+  // Check for duplicate names if name is being updated (globally unique, excluding current sensor)
+  if (sensor.name) {
+    const [existing] = await db.query('SELECT id FROM sensor WHERE name = ? AND id != ?', [sensor.name, id]);
+    if (existing.length > 0) {
+      throw new Error(`Sensor with name "${sensor.name}" already exists`);
+    }
+  }
+  
   const allowed = ['serial_number','model','manufacturer','type','name','unit','status','installed_at','last_maintenance','building_id','floor_id','room_id','x_coord','y_coord','x_percent','y_percent','map_id'];
   const payload = {};
   for (const k of allowed) if (sensor[k] !== undefined) payload[k] = sensor[k];
@@ -80,7 +97,27 @@ async function updateSensor(id, sensor) {
 // מחיקה
 async function deleteSensor(id) {
   await ensureSensorTable();
+  
+  // Complete cascade deletion for sensor:
+  // Sensor -> Plants -> Watering Schedules + Measurements
+  
+  // 1. Delete measurements for this sensor
+  await db.query('DELETE FROM measurement WHERE sensor_id = ?', [id]);
+  
+  // 2. Get plants using this sensor and delete their watering schedules
+  const [plants] = await db.query('SELECT id FROM plant WHERE sensor_id = ?', [id]);
+  const plantIds = plants.map(p => p.id);
+  
+  if (plantIds.length > 0) {
+    const plantPlaceholders = plantIds.map(() => '?').join(',');
+    await db.query(`DELETE FROM watering_schedule WHERE plant_id IN (${plantPlaceholders})`, plantIds);
+    await db.query(`DELETE FROM plant WHERE id IN (${plantPlaceholders})`, plantIds);
+  }
+  
+  // 3. Finally delete the sensor
   const [result] = await db.query('DELETE FROM sensor WHERE id = ?', [id]);
+  
+  console.log(`Sensor ${id} deleted with cascade: ${plantIds.length} plants and their schedules + measurements`);
   return result.affectedRows;
 }
 

@@ -1,28 +1,20 @@
 import Layout from "./Layout.jsx";
 
-import Dashboard from "./Dashboard";
-
 import MapView from "./MapView";
 
 import Sensors from "./Sensors";
 
 import Buildings from "./Buildings";
 
-import History from "./History";
-
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
-    
-    Dashboard: Dashboard,
     
     MapView: MapView,
     
     Sensors: Sensors,
     
     Buildings: Buildings,
-    
-    History: History,
     
 }
 
@@ -48,18 +40,13 @@ function PagesContent() {
         <Layout currentPageName={currentPage}>
             <Routes>            
                 
-                    <Route path="/" element={<Dashboard />} />
-                
-                
-                <Route path="/Dashboard" element={<Dashboard />} />
+                    <Route path="/" element={<MapView />} />
                 
                 <Route path="/MapView" element={<MapView />} />
                 
                 <Route path="/Sensors" element={<Sensors />} />
                 
                 <Route path="/Buildings" element={<Buildings />} />
-                
-                <Route path="/History" element={<History />} />
                 
             </Routes>
         </Layout>

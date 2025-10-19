@@ -461,19 +461,28 @@ export default function Sensors() {
         if (floor) {
           currentFloorId = floor.id.toString();
           currentBuildingId = floor.building_id.toString();
+          currentMapId = sensor.map_id.toString(); // Ensure map_id is preserved
         }
       }
     }
     
-    setEditForm({
+    const formData = {
       name: sensor.name || "",
-      type: sensor.type || "moisture",
+      type: sensor.type || "moisture", 
       status: sensor.status || "active",
       room_id: sensor.room_id || "",
-      building_id: currentBuildingId,
-      floor_id: currentFloorId,
-      map_id: currentMapId
-    });
+      building_id: currentBuildingId ? currentBuildingId.toString() : "",
+      floor_id: currentFloorId ? currentFloorId.toString() : "",
+      map_id: currentMapId ? currentMapId.toString() : ""
+    };
+    
+    console.log("Sensor data:", sensor);
+    console.log("Edit form data:", formData);
+    console.log("Available buildings:", buildings.map(b => ({id: b.id.toString(), name: b.name})));
+    console.log("Available floors:", floors.map(f => ({id: f.id.toString(), name: f.name})));
+    console.log("Available maps:", maps.map(m => ({id: m.id.toString(), name: m.name})));
+    
+    setEditForm(formData);
     setPendingMove(null);
     setEditDraftPosition(null);
     setShowEditForm(true);
