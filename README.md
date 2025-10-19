@@ -1,17 +1,16 @@
 # Smart Campus Monitoring System 🏫
 
-A full-stack web application for monitoring campus garden environments through IoT sensors, providing real-time data visualization and plant management capabilities.
+A full-stack web application for monitoring campus environments through IoT sensors, providing real-time data visualization and comprehensive facility management capabilities.
 
 ## 🎯 Project Overview
 
-The Smart Campus Monitoring System enables facilities management to monitor and maintain campus gardens efficiently through:
+The Smart Campus Monitoring System enables facilities management to monitor and maintain campus environments efficiently through:
 
 - **Real-time sensor monitoring** (temperature, humidity, moisture, light)
 - **Interactive map visualization** with drag-and-drop sensor placement
 - **Building and floor management** with floor plan integration
-- **Plant inventory and watering schedule management**
-- **Historical data tracking and analytics**
-- **Responsive dashboard** with key performance indicators
+- **Sensor data tracking and analytics**
+- **Comprehensive building infrastructure management**
 
 ## 🏗️ System Architecture
 
@@ -108,7 +107,7 @@ Access the application at `http://localhost:5173`
 - **Live sensor counts** with automatic updates after data changes
 - **Building-level statistics** with accurate sensor counts per floor
 - **Real-time data synchronization** across map deletions and sensor modifications
-- **Responsive dashboard** with key performance indicators
+- **Embedded statistics cards** integrated within MapView interface
 
 ### 🏢 Advanced Building Management
 - **Complete building hierarchy**: Buildings → Floors → Maps → Sensors
@@ -118,25 +117,26 @@ Access the application at `http://localhost:5173`
 - **Large map preview** with responsive overlay dialogs (90vw sizing)
 - **Map assignment system** with upload, replace, and remove functionality
 
-### 🌱 Enhanced Sensor & Plant Management
+### 🔧 Enhanced Sensor Management
 - **Advanced sensor CRUD** with comprehensive edit functionality including location changes
 - **Drag-and-drop sensor positioning** with move overlay for precise placement
 - **Sensor type categorization** with automatic unit assignment (moisture→%, temperature→°C, etc.)
 - **Advanced filtering** by building, floor, status, and sensor type
 - **Cascade deletion protection** ensuring data integrity across the hierarchy
+- **Real-time measurement display** with latest sensor readings
 
 ## 🛠️ Technical Implementation
 
 ### Frontend Architecture
 ```
 client/src/
-├── pages/           # Main application pages
+├── pages/           # Main application pages (MapView, Sensors, Buildings)
 ├── components/
 │   ├── ui/         # Reusable shadcn/ui components
-│   └── dashboard/  # Dashboard-specific components
+│   ├── dashboard/  # Statistics components for MapView integration
+│   └── MapDisplay.jsx  # Interactive map component
 ├── api/            # API client and entity definitions
 ├── config/         # Configuration files
-├── hooks/          # Custom React hooks
 └── lib/           # Utility functions
 ```
 
@@ -157,8 +157,7 @@ server/
 - React 18 + Vite
 - Tailwind CSS + shadcn/ui
 - React Router DOM v7
-- Recharts for visualization
-- Framer Motion for animations
+- LocalStorage for state persistence
 
 **Backend Stack:**
 - Express.js
@@ -175,9 +174,9 @@ server/
 | `/api/sensors` | GET, POST, PUT, DELETE | Sensor operations with location tracking |
 | `/api/maps` | GET, POST, DELETE | Map management with floor assignment |
 | `/api/filter-sensors` | GET | Advanced sensor filtering by map/building/floor |
-| `/api/plants` | GET, POST, PUT, DELETE | Plant inventory management |
-| `/api/measurements` | GET, POST | Sensor data readings and historical data |
-| `/api/watering-schedules` | GET, POST, PUT, DELETE | Watering schedule management |
+| `/api/plants` | GET, PUT | Plant data for sensor integration (backend only) |
+| `/api/measurements` | GET, POST, DELETE | Sensor data readings and historical data |
+| `/api/watering-schedules` | GET, POST, PUT, DELETE | Watering data for sensor integration (backend only) |
 | `/api/cleanup-orphaned-data` | POST | Database maintenance and cleanup utility |
 
 ## 🎨 UI/UX Highlights
@@ -209,10 +208,12 @@ server/
 
 The system manages the following core entities:
 - **Buildings** (id, name, slug, description)
-- **Floors** (id, building_id, level, name, map_data)
-- **Sensors** (id, name, type, status, x_percent, y_percent, floor_id)
-- **Plants** (id, name, species, location, care_instructions)
-- **Measurements** (id, sensor_id, value, timestamp)
+- **Floors** (id, building_id, level, name)
+- **Maps** (id, name, image_base64, building_id, floor_id)
+- **Sensors** (id, name, type, status, x_percent, y_percent, map_id, building_id, floor_id)
+- **Measurements** (id, sensor_id, value, unit, timestamp)
+- **Plants** (id, name, species, sensor_id, watering_threshold) - Backend integration
+- **Watering Schedules** (id, plant_id, schedule_time, created_date) - Backend integration
 
 ## 🚀 Deployment Considerations
 
@@ -221,14 +222,14 @@ The system manages the following core entities:
 - CORS configuration for production domains
 - Database migration scripts for updates
 
-## 👥 Team Collaboration
+## 👥 Application Structure
 
-This project demonstrates full-stack development skills including:
-- **Frontend development** with modern React patterns
-- **Backend API design** following REST principles
-- **Database design** with proper relationships
-- **UI/UX implementation** with professional components
-- **State management** across complex user interactions
+This project demonstrates a complete IoT monitoring system including:
+- **Three main pages**: MapView (home), Sensors management, Buildings management
+- **Interactive map interface** with real-time sensor visualization
+- **Comprehensive CRUD operations** for all entities with proper validation
+- **Advanced state management** with localStorage persistence and real-time updates
+- **Professional UI/UX** using shadcn/ui component library
 
 ## 🔧 Recent Major Updates
 
