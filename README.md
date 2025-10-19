@@ -97,28 +97,33 @@ Access the application at `http://localhost:5173`
 ## 📱 Key Features
 
 ### 🗺️ Interactive Map View
-- **Visual sensor placement** on building floor plans
-- **Drag-and-drop positioning** with real-time coordinate updates
-- **Sensor status indicators** (active, inactive, maintenance)
-- **Building → Floor → Map navigation** cascade
+- **Visual sensor placement** on building floor plans with accurate positioning
+- **Drag-and-drop positioning** with real-time coordinate updates and smooth performance
+- **Sensor status indicators** with unified color scheme (green=active, red=inactive)
+- **Building → Floor → Map navigation** cascade with persistent state management
+- **Session persistence** - maintains floor selection across page refreshes
+- **Support for floors without maps** with appropriate messaging
 
-### 📊 Dashboard Analytics
-- **Real-time metrics** with auto-refresh capabilities
-- **Historical trend charts** using Recharts
-- **Alert notifications** for sensor anomalies
-- **Quick action buttons** for common tasks
+### 📊 Real-time Statistics & Analytics
+- **Live sensor counts** with automatic updates after data changes
+- **Building-level statistics** with accurate sensor counts per floor
+- **Real-time data synchronization** across map deletions and sensor modifications
+- **Responsive dashboard** with key performance indicators
 
-### 🏢 Building Management
-- **Multi-level hierarchy**: Buildings → Floors → Rooms
-- **Floor plan upload** and management
-- **Expandable building cards** with integrated floor CRUD operations
-- **Large map preview** with responsive overlay dialogs
+### 🏢 Advanced Building Management
+- **Complete building hierarchy**: Buildings → Floors → Maps → Sensors
+- **Integrated infrastructure wizard** for guided building/floor/map creation
+- **Smart auto-naming** - automatic map naming using building_floor pattern when name field is empty
+- **Expandable building cards** with comprehensive floor CRUD operations
+- **Large map preview** with responsive overlay dialogs (90vw sizing)
+- **Map assignment system** with upload, replace, and remove functionality
 
-### 🌱 Sensor & Plant Management
-- **Comprehensive sensor CRUD** with form validation
-- **Sensor type categorization** (temperature, humidity, moisture, light)
-- **Plant inventory tracking** with watering schedules
-- **Advanced filtering** by building, floor, status, and type
+### 🌱 Enhanced Sensor & Plant Management
+- **Advanced sensor CRUD** with comprehensive edit functionality including location changes
+- **Drag-and-drop sensor positioning** with move overlay for precise placement
+- **Sensor type categorization** with automatic unit assignment (moisture→%, temperature→°C, etc.)
+- **Advanced filtering** by building, floor, status, and sensor type
+- **Cascade deletion protection** ensuring data integrity across the hierarchy
 
 ## 🛠️ Technical Implementation
 
@@ -165,21 +170,26 @@ server/
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/buildings` | GET, POST, PUT, DELETE | Building management |
-| `/api/floors` | GET, POST, PUT, DELETE | Floor management |
-| `/api/sensors` | GET, POST, PUT, DELETE | Sensor operations |
-| `/api/plants` | GET, POST, PUT, DELETE | Plant inventory |
-| `/api/measurements` | GET, POST | Sensor data readings |
-| `/api/watering-schedules` | GET, POST, PUT, DELETE | Watering management |
+| `/api/buildings` | GET, POST, PUT, DELETE | Building management with cascade deletion |
+| `/api/floors` | GET, POST, PUT, DELETE | Floor management with map integration |
+| `/api/sensors` | GET, POST, PUT, DELETE | Sensor operations with location tracking |
+| `/api/maps` | GET, POST, DELETE | Map management with floor assignment |
+| `/api/filter-sensors` | GET | Advanced sensor filtering by map/building/floor |
+| `/api/plants` | GET, POST, PUT, DELETE | Plant inventory management |
+| `/api/measurements` | GET, POST | Sensor data readings and historical data |
+| `/api/watering-schedules` | GET, POST, PUT, DELETE | Watering schedule management |
+| `/api/cleanup-orphaned-data` | POST | Database maintenance and cleanup utility |
 
 ## 🎨 UI/UX Highlights
 
-- **Responsive design** optimized for desktop and tablet
-- **Hebrew RTL support** for localized interface
-- **Toast notifications** with auto-dismiss functionality
-- **Modal dialogs** with proper z-index layering
-- **Form validation** with comprehensive error handling
-- **Drag performance optimization** using requestAnimationFrame
+- **Responsive design** optimized for desktop and tablet with mobile-friendly dropdowns
+- **Hebrew RTL support** for localized interface with proper text alignment
+- **Enhanced toast notifications** with auto-dismiss (3 seconds) and working close buttons
+- **Advanced modal dialogs** with proper z-index layering (z-[1000]) and transparent overlays
+- **Comprehensive form validation** with Hebrew error messages and duplicate detection
+- **Smooth drag performance** using requestAnimationFrame for 60fps sensor positioning
+- **Unified color scheme** for consistent sensor status indicators across all pages
+- **Persistent state management** with localStorage for seamless user experience
 
 ## 🔄 Development Workflow
 
@@ -189,10 +199,11 @@ server/
 - Proper error boundaries and loading states
 
 ### Performance Optimizations
-- Direct DOM manipulation for drag operations
-- Connection pooling for database efficiency
-- Lazy loading for large datasets
-- Optimized re-rendering with React.memo
+- **Direct DOM manipulation** for smooth drag operations using requestAnimationFrame
+- **Connection pooling** for database efficiency with mysql2/promise
+- **LocalStorage persistence** for maintaining user state across sessions
+- **Optimized re-rendering** with React.memo and proper state management
+- **Cascade deletion optimization** with transaction-based operations
 
 ## 📋 Database Schema
 
@@ -219,13 +230,34 @@ This project demonstrates full-stack development skills including:
 - **UI/UX implementation** with professional components
 - **State management** across complex user interactions
 
+## 🔧 Recent Major Updates
+
+### MapView Improvements (Latest Release)
+- **Fixed refresh issue** - Now maintains correct floor selection across page refreshes
+- **localStorage enhancement** - Supports floors without maps with proper state persistence
+- **Building wizard improvements** - Removed map name requirement and added auto-naming
+- **Enhanced navigation** - Prevents auto-selection interference during state restoration
+
+### Data Integrity & Performance
+- **Complete cascade deletion** - Properly handles building/floor/map/sensor hierarchy
+- **Database cleanup utilities** - Automated orphaned data detection and removal
+- **Real-time statistics** - Live updates across all map and sensor modifications
+- **Optimized drag operations** - Smooth sensor positioning with performance improvements
+
+### UI/UX Enhancements
+- **Unified color scheme** - Consistent green/red indicators for active/inactive sensors
+- **Enhanced error handling** - Comprehensive validation with Hebrew error messages
+- **Improved mobile support** - Fixed dropdown visibility and responsive design issues
+- **Toast system overhaul** - Auto-dismiss functionality with working close buttons
+
 ## 📈 Future Enhancements
 
 - Real-time WebSocket connections for live sensor updates
-- Mobile application development
-- Advanced analytics and reporting features
-- Integration with IoT hardware sensors
+- Mobile application development with React Native
+- Advanced analytics and reporting dashboard
+- Integration with physical IoT hardware sensors
 - User authentication and role-based access control
+- API rate limiting and security enhancements
 
 ---
 
