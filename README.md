@@ -6,7 +6,7 @@ A full-stack web application for monitoring campus environments through IoT sens
 
 The Smart Campus Monitoring System enables facilities management to monitor and maintain campus environments efficiently through:
 
-- **Real-time sensor monitoring** (temperature, humidity, moisture, light)
+- **Real-time sensor monitoring** (temperature, moisture)
 - **Interactive map visualization** with drag-and-drop sensor placement
 - **Building and floor management** with floor plan integration
 - **Sensor data tracking and analytics**
