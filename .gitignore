@@ -34,16 +34,3 @@ client/build/
 # Logs
 logs
 *.log
-
-# Development documentation and temporary files
-CLAUDE.md
-NGROK_SETUP.md
-checkpoint-summary.md
-fix-sensor-location.js
-server/fix-sensor-location.js
-start-with-ngrok.bat
-
-# Screenshots and images (development artifacts)
-browser-error.png
-ngrokPass.png
-*.png

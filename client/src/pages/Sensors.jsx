@@ -323,15 +323,28 @@ export default function Sensors() {
     }
     
     try {
+      // Find the building_id and floor_id for the target map
+      const targetMap = maps.find(m => m.id === draftPosition.mapId);
+      const targetFloor = floors.find(f => f.id === targetMap?.floor_id);
+      
       await entities.Sensor.update(movingSensor.id, {
         map_id: draftPosition.mapId,
+        building_id: targetFloor?.building_id,
+        floor_id: targetMap?.floor_id,
         x_percent: draftPosition.x,
         y_percent: draftPosition.y
       });
 
       setSensors(sensors.map(s => 
         s.id === movingSensor.id 
-          ? { ...s, map_id: draftPosition.mapId, x_percent: draftPosition.x, y_percent: draftPosition.y }
+          ? { 
+              ...s, 
+              map_id: draftPosition.mapId, 
+              building_id: targetFloor?.building_id,
+              floor_id: targetMap?.floor_id,
+              x_percent: draftPosition.x, 
+              y_percent: draftPosition.y 
+            }
           : s
       ));
 
@@ -507,8 +520,20 @@ export default function Sensors() {
         room_id: editForm.room_id || null,
       };
 
-      // Handle location changes
+      // Always include location data from the form (either original or user-modified)
+      if (editForm.building_id) {
+        updateData.building_id = Number(editForm.building_id);
+      }
+      if (editForm.floor_id) {
+        updateData.floor_id = Number(editForm.floor_id);
+      }
+      if (editForm.map_id) {
+        updateData.map_id = Number(editForm.map_id);
+      }
+
+      // Handle location changes with position updates
       if (pendingMove) {
+        // Override with pending move data (this handles map changes)
         updateData.map_id = Number(pendingMove.mapId);
         updateData.building_id = Number(pendingMove.buildingId);
         updateData.floor_id = Number(pendingMove.floorId);
