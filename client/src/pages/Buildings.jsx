@@ -82,16 +82,6 @@ export default function Buildings() {
     );
   };
 
-  const getBuildingStatus = (building) => {
-    const buildingSensors = getSensorsForBuilding(building.id);
-    const activeSensors = buildingSensors.filter(s => s.status === 'active');
-    
-    if (buildingSensors.length === 0) return 'no_sensors';
-    if (activeSensors.length === 0) return 'offline';
-    if (activeSensors.length === buildingSensors.length) return 'online';
-    return 'partial';
-  };
-
   // Deduplicate buildings by ID and filter
   const uniqueBuildings = buildings.reduce((acc, building) => {
     if (!acc.find(b => b.id === building.id)) {
@@ -104,20 +94,6 @@ export default function Buildings() {
     building.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     building.address?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const getStatusBadge = (building) => {
-    const status = getBuildingStatus(building);
-    switch(status) {
-      case 'online':
-        return <Badge className="bg-green-100 text-green-800">מקוון</Badge>;
-      case 'partial':
-        return <Badge variant="secondary">חלקי</Badge>;
-      case 'offline':
-        return <Badge variant="destructive">לא מקוון</Badge>;
-      default:
-        return <Badge variant="outline">אין חיישנים</Badge>;
-    }
-  };
 
   const handleCreateBuilding = async () => {
     try {
@@ -230,6 +206,14 @@ export default function Buildings() {
     return {
       maps: floorMaps.length,
       sensors: floorSensors.length
+    };
+  };
+
+  const getMapDeletionInfo = (mapId) => {
+    const mapSensors = sensors.filter(s => s.map_id === mapId);
+    
+    return {
+      sensors: mapSensors.length
     };
   };
 
@@ -474,12 +458,9 @@ export default function Buildings() {
           return (
             <Card key={building.id} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-blue-600" />
-                    <CardTitle className="text-lg">{building.name}</CardTitle>
-                  </div>
-                  {getStatusBadge(building)}
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-lg">{building.name}</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
@@ -848,6 +829,23 @@ export default function Buildings() {
                 <p className="text-gray-600 mb-4">
                   האם אתה בטוח שברצונך להסיר את המפה מהקומה "{selectedFloor?.name}"?
                 </p>
+                {(() => {
+                  const floorMap = getMapForFloor(selectedFloor?.id);
+                  const deletionInfo = floorMap ? getMapDeletionInfo(floorMap.id) : { sensors: 0 };
+                  return deletionInfo.sensors > 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center justify-center gap-2 text-yellow-800 mb-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span className="font-medium">תיבדק ההסרה</span>
+                      </div>
+                      <p className="text-sm text-yellow-700">
+                        המפה מכילה <span className="font-bold">{deletionInfo.sensors}</span> חיישנים
+                        <br />
+                        החיישנים יוסרו יחד עם המפה
+                      </p>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="flex justify-center gap-2">
                   <Button variant="outline" onClick={() => setIsMapDialogOpen(false)}>
                     ביטול
