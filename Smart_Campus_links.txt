@@ -1,0 +1,14 @@
+Smart_Campus_Sensors_Manegement
+
+שמות הסטודנטים ותעודות זהות:
+Shai Dahari 066420431
+Amit Yehoshafat 212359442
+Yoav Levavi 318914389
+Chen Tetroashvili 212997944
+Adane Abaye 323283572 
+
+סרטון ליוטיוב:
+https://youtu.be/S9LgQgck3Ho
+
+לינק לגיטהאב:
+https://github.com/shaiDahari/fullStack_smartCampusProject
