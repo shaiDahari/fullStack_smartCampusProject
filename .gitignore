@@ -35,3 +35,4 @@ client/build/
 logs
 *.log"browser-error.png" 
 "CLAUDE.md" 
+"checkpoint-summary.md" 
