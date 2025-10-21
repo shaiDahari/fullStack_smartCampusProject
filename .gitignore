@@ -36,3 +36,5 @@ logs
 *.log"browser-error.png" 
 "CLAUDE.md" 
 "checkpoint-summary.md" 
+"NGROK_SETUP.md" 
+"fix-sensor-location.js" 
